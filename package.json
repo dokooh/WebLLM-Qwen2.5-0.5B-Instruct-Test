@@ -1,0 +1,17 @@
+{
+  "name": "qwen",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test_webllm.js",
+    "webllm": "node test_webllm.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.79"
+  }
+}

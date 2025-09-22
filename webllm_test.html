@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebLLM Qwen2.5-0.5B-Instruct Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .loading {
+            color: #007bff;
+            font-weight: bold;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .response-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 WebLLM Qwen2.5-0.5B-Instruct Test</h1>
+        
+        <div id="status" class="loading">Initializing WebLLM...</div>
+        
+        <div id="progress"></div>
+        
+        <div id="controls" style="display: none;">
+            <h3>Test the Model:</h3>
+            <input type="text" id="userInput" placeholder="Enter your message here..." value="Hello! How are you today?">
+            <br>
+            <button onclick="sendMessage()">Send Message</button>
+            <button onclick="clearHistory()">Clear History</button>
+        </div>
+        
+        <div id="conversation"></div>
+    </div>
+
+    <script type="module">
+        import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
+
+        let engine = null;
+        let conversationHistory = [];
+
+        async function initializeWebLLM() {
+            const statusDiv = document.getElementById('status');
+            const progressDiv = document.getElementById('progress');
+            const controlsDiv = document.getElementById('controls');
+            
+            try {
+                statusDiv.textContent = 'Loading Qwen2.5-0.5B-Instruct model...';
+                statusDiv.className = 'loading';
+                
+                // Use the correct model name for WebLLM
+                const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+                
+                engine = await CreateMLCEngine(selectedModel, {
+                    initProgressCallback: (report) => {
+                        progressDiv.innerHTML = `<div class="loading">${report.text}</div>`;
+                        console.log('Progress:', report);
+                    }
+                });
+                
+                statusDiv.textContent = '✅ WebLLM initialized successfully! Ready to chat with Qwen2.5-0.5B-Instruct';
+                statusDiv.className = 'success';
+                progressDiv.innerHTML = '';
+                controlsDiv.style.display = 'block';
+                
+                // Automatically run a test message
+                await runInitialTest();
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                statusDiv.textContent = `❌ Failed to initialize WebLLM: ${error.message}`;
+                statusDiv.className = 'error';
+                progressDiv.innerHTML = `<div class="error">Error details: ${error.stack}</div>`;
+            }
+        }
+
+        async function runInitialTest() {
+            const testMessage = "Hello! How are you today?";
+            await sendMessageInternal(testMessage);
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            
+            if (!message || !engine) return;
+            
+            input.value = '';
+            await sendMessageInternal(message);
+        }
+
+        async function sendMessageInternal(message) {
+            const conversationDiv = document.getElementById('conversation');
+            
+            // Add user message to conversation
+            addMessageToConversation('user', message);
+            
+            try {
+                // Add user message to history
+                conversationHistory.push({ role: "user", content: message });
+                
+                // Add loading indicator
+                const loadingId = 'loading-' + Date.now();
+                conversationDiv.innerHTML += `<div id="${loadingId}" class="loading">🤔 Qwen is thinking...</div>`;
+                
+                // Generate response
+                const completion = await engine.chat.completions.create({
+                    messages: conversationHistory,
+                    max_tokens: 150,
+                    temperature: 0.7,
+                });
+                
+                const response = completion.choices[0]?.message?.content || "Sorry, I couldn't generate a response.";
+                
+                // Remove loading indicator
+                document.getElementById(loadingId).remove();
+                
+                // Add assistant response to conversation and history
+                addMessageToConversation('assistant', response);
+                conversationHistory.push({ role: "assistant", content: response });
+                
+            } catch (error) {
+                console.error('Generation error:', error);
+                document.getElementById(loadingId).textContent = `❌ Error: ${error.message}`;
+                document.getElementById(loadingId).className = 'error';
+            }
+        }
+
+        function addMessageToConversation(role, content) {
+            const conversationDiv = document.getElementById('conversation');
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = `
+                <h4>${role === 'user' ? '👤 You' : '🤖 Qwen2.5-0.5B-Instruct'}</h4>
+                <div class="response-box">${content}</div>
+            `;
+            conversationDiv.appendChild(messageDiv);
+            conversationDiv.scrollTop = conversationDiv.scrollHeight;
+        }
+
+        function clearHistory() {
+            conversationHistory = [];
+            document.getElementById('conversation').innerHTML = '';
+        }
+
+        // Make functions global for button onclick handlers
+        window.sendMessage = sendMessage;
+        window.clearHistory = clearHistory;
+
+        // Handle Enter key in input
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('userInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        });
+
+        // Initialize WebLLM when the page loads
+        initializeWebLLM();
+    </script>
+</body>
+</html>
